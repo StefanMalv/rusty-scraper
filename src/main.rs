@@ -1,27 +1,53 @@
 mod features;
-use clap::{command, Command, Parser, Subcommand, Arg};
-use clap::error::ErrorKind;
+
+use std::io::{ErrorKind, Error};
+use clap::{Command, Arg, ArgMatches};
+
+struct Argument {
+    command: CommandType,
+    flags: Vec<char>,
+}
+
+enum CommandType {
+    Html((String, ArgMatches)),
+    Meta((String, ArgMatches)),
+    ErrCommand(ErrorKind),
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let arguments = command!()
+    let arguments = Command::new("MyApp")
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommand(
-            Command::new("HTML")
-                .about("Get the html content form the first page in the target URL")
-                .arg(Arg::new("url").required(true).help("The URL to analyze"))
-                .long_flag("html")
+            Command::new("html")
+                .about("Get the HTML content from the first page in the target URL")
+                .arg(
+                    Arg::new("url")
+                        .required(true)
+                        .help("The URL to analyze"),
+                ),
+        )
+        .subcommand(
+            Command::new("meta")
+                .about("Get metadata about the page")
+                .arg(
+                    Arg::new("url")
+                        .required(true)
+                        .help("The URL to analyze"),
+                ),
         )
         .get_matches();
 
-    // arguments.subcommand() returns a Option<(&str, ArgMatches)>
-    // We then match the "argument" and the value from ArgMatches (sub) and call the respective
-    // method from features.rs
-    match arguments.subcommand() {
-        Some(("HTML", sub)) => {
-            let url = sub.get_one::<String>("url").unwrap();
-            Ok(println!("{}",features::get_html(url)?))
+
+    let current_argument = Argument {
+        command: match arguments.subcommand() {
+            Some(("html", sub)) => CommandType::Html(("html".to_string(), sub.clone())),
+            Some(("meta", sub)) => CommandType::Meta(("meta".to_string(), sub.clone())),
+            _ => CommandType::ErrCommand(ErrorKind::InvalidData),
         },
-        _ => Ok(()),
-    }
+        flags: vec![],
+    };
+
+    todo!()
+    // Finnish matching the commands that have been called to the relevant methods in features.rs
 }

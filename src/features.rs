@@ -1,14 +1,25 @@
-use scraper::Selector;
+use scraper::{Html, Selector};
+enum WebPage {
+    Header(String),
+    Body(String),
+    Footer(String),
+    Links(String),
+}
 
 //Default output for when rusty-scraper is called without any additional flags
-pub fn get_webpage_info(url: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn get_webpage_info(url: &str, flag: Vec<char>) {
     let document = get_html(url);
-    let html_page = scraper::Html::parse_document(&document?);
+    let html_page = Html::parse_document(&document);
+    let flags = Vec::new();
 
+    // let body = Selector::parse("body").unwrap();
+    // for body in html_page.select(&body) {
+    //     println!("This is the body of the webpage \
+    //              {}", body.inner_html());
+    // }
     todo!()
-    // Implement the rest for the functionality
-    // get:
-    // header, Body, links, footer, etc
+    // Finish this method so that it returns all the metadata and connect the methods to main
+    // try not using redundant for loops
 }
 
 // Command for when the --html command is called
@@ -18,7 +29,7 @@ pub fn get_html(url: &str) -> Result<String, Box<dyn std::error::Error>> {
         .unwrap()
         .text()
         .unwrap();
-    let html_document = scraper::Html::parse_document(&response);
+    let html_document = Html::parse_document(&response);
 
     Ok(html_document.html())
 }
