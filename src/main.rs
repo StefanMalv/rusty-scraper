@@ -1,6 +1,6 @@
 mod features;
 use clap::{command, Command, Parser, Subcommand, Arg};
-
+use clap::error::ErrorKind;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let arguments = command!()
@@ -18,9 +18,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // We then match the "argument" and the value from ArgMatches (sub) and call the respective
     // method from features.rs
     match arguments.subcommand() {
-        Some(("HTML", sub)) =>
-            features::get_html(sub.get_one::<String>("url")
-            .unwrap()),
-        _ => unreachable!(),
+        Some(("HTML", sub)) => {
+            let url = sub.get_one::<String>("url").unwrap();
+            Ok(println!("{}",features::get_html(url)?))
+        },
+        _ => Ok(()),
     }
 }
