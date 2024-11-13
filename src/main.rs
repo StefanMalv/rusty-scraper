@@ -13,7 +13,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .long_flag("html")
         )
         .get_matches();
-    
+
+    // arguments.subcommand() returns a Option<(&str, ArgMatches)>
+    // We then match the "argument" and the value from ArgMatches (sub) and call the respective
+    // method from features.rs
     match arguments.subcommand() {
         Some(("HTML", sub)) =>
             features::get_html(sub.get_one::<String>("url")
