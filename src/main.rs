@@ -1,11 +1,11 @@
 mod features;
 
-use std::io::{ErrorKind, Error};
+use std::io::{ ErrorKind };
 use clap::{Command, Arg, ArgMatches};
 
 struct Argument {
     command: CommandType,
-    flags: Vec<char>,
+    flags:  Vec<(&'static str, &'static ArgMatches)>,
 }
 
 enum CommandType {
@@ -45,9 +45,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Some(("meta", sub)) => CommandType::Meta(("meta".to_string(), sub.clone())),
             _ => CommandType::ErrCommand(ErrorKind::InvalidData),
         },
-        flags: vec![],
+        flags: vec![
+            arguments.subcommand().unwrap_or_default()
+        ],
     };
 
     todo!()
     // Finnish matching the commands that have been called to the relevant methods in features.rs
+    // in the run commands function :)
+}
+
+fn run_commands(argument: CommandType, flag: Vec<(&'static str, &'static ArgMatches)>) -> String {
+    todo!()
 }
