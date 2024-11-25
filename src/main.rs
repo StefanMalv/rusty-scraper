@@ -1,21 +1,29 @@
+extern crate core;
+
 mod features;
 
 use std::io::{ ErrorKind };
-use clap::{Command, Arg, ArgMatches};
+use clap::{ Command, Arg };
 
+// Struct for creating an argument
 struct Argument {
     command: CommandType,
-    flags:  Vec<(&'static str, &'static ArgMatches)>,
+    url: String,
+    flags: Vec<String>,
 }
 
+// Enum for the type of command being given
+// Possible to add more types for when I add new functionality
 enum CommandType {
-    Html((String, ArgMatches)),
-    Meta((String, ArgMatches)),
+    Html,
+    Meta,
     ErrCommand(ErrorKind),
 }
 
+// Main function for creating and handling arguments given
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let arguments = Command::new("MyApp")
+    // This creates the different arguments that can be given and its subcommands
+    let arguments = Command::new("rusty-scraper")
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommand(
@@ -25,8 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Arg::new("url")
                         .required(true)
                         .help("The URL to analyze"),
-                ),
-        )
+                ))
         .subcommand(
             Command::new("meta")
                 .about("Get metadata about the page")
@@ -34,27 +41,69 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Arg::new("url")
                         .required(true)
                         .help("The URL to analyze"),
-                ),
-        )
+                ))
         .get_matches();
 
+    // this part of the main function organizes the argument given into its individual
+    // parts: main command, subcommands, url, flags
+    // Note: considering on breaking this part into functions
 
-    let current_argument = Argument {
-        command: match arguments.subcommand() {
-            Some(("html", sub)) => CommandType::Html(("html".to_string(), sub.clone())),
-            Some(("meta", sub)) => CommandType::Meta(("meta".to_string(), sub.clone())),
-            _ => CommandType::ErrCommand(ErrorKind::InvalidData),
-        },
-        flags: vec![
-            arguments.subcommand().unwrap_or_default()
-        ],
+    // commands and subcommands
+    let (command, sub_arguments) = arguments
+        .subcommand()
+        .ok_or(ErrorKind::InvalidInput)?;
+
+    // Given url
+    let url = sub_arguments
+        .get_one::<String>("url")
+        .ok_or(ErrorKind::InvalidInput)?
+        .to_string();
+
+    // all the flags
+    //let flags: Vec<String> = todo!();
+
+    // the main command
+    let command = match command {
+        "html" => CommandType::Html,
+        "meta" => CommandType::Meta,
+        _ => CommandType::ErrCommand(ErrorKind::InvalidData),
     };
 
-    todo!()
-    // Finnish matching the commands that have been called to the relevant methods in features.rs
-    // in the run commands function :)
+    // the whole argument
+    let argument = Argument {
+        command,
+        url,
+        flags,
+    };
+
+    let result = run_commands(argument);
+
+    println!("{}", result);
+    Ok(())
 }
 
-fn run_commands(argument: CommandType, flag: Vec<(&'static str, &'static ArgMatches)>) -> String {
+
+// Processes the argument given and runs the respective functions from features.rs
+fn run_commands(argument: Argument) -> String {
+    match argument.command {
+        CommandType::Html => {
+            features::get_html(&argument.url).unwrap_or_else(|err| {
+                format!("Failed to fetch HTML: {}", err)
+            })
+        }
+        CommandType::Meta => {
+            features::get_webpage_info(&argument.url, &argument.flags).unwrap_or_else(|err| {
+                format!("Failed to fetch metadata: {}", err)
+            })
+        }
+        CommandType::ErrCommand(err) => {
+            format!("Invalid command: {:?}", err)
+        }
+    }
+}
+
+// helper function for extracting all the flags into a vector
+fn get_flags(flags: Argument) -> Vec<String> {
+    // takes in the argument given and returns a vector with all the flags given in the argument
     todo!()
 }

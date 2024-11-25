@@ -1,4 +1,4 @@
-use scraper::{Html, Selector};
+use scraper::{ Html };
 enum WebPage {
     Header(String),
     Body(String),
@@ -7,8 +7,11 @@ enum WebPage {
 }
 
 //Default output for when rusty-scraper is called without any additional flags
-pub fn get_webpage_info(url: &str, flag: Vec<char>) {
-    let document = get_html(url);
+pub fn get_webpage_info(url: &str, flag: &Vec<String>) -> String {
+    let document = match get_html(url) {
+        Ok(doc) => doc,
+        Err(e) => return format!("Error fetching HTML: {}", e),
+    };
     let html_page = Html::parse_document(&document);
     let flags = Vec::new();
 
@@ -24,6 +27,7 @@ pub fn get_webpage_info(url: &str, flag: Vec<char>) {
 
 // Command for when the --html command is called
 // Gives the raw html content
+
 pub fn get_html(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     let response = reqwest::blocking::get(url)
         .unwrap()
