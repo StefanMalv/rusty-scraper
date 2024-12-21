@@ -13,7 +13,7 @@ pub fn get_webpage_info(url: &str, flag: &Vec<String>) -> String {
         Err(e) => return format!("Error fetching HTML: {}", e),
     };
     let html_page = Html::parse_document(&document);
-    let flags = Vec::new();
+    let flags: Vec<String> = Vec::new();
 
     // let body = Selector::parse("body").unwrap();
     // for body in html_page.select(&body) {

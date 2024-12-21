@@ -51,16 +51,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // commands and subcommands
     let (command, sub_arguments) = arguments
         .subcommand()
-        .ok_or(ErrorKind::InvalidInput)?;
+        .ok_or(ErrorKind::InvalidInput).unwrap();
 
     // Given url
     let url = sub_arguments
         .get_one::<String>("url")
-        .ok_or(ErrorKind::InvalidInput)?
+        .ok_or(ErrorKind::InvalidInput).unwrap()
         .to_string();
 
     // all the flags
-    //let flags: Vec<String> = todo!();
+    let flags: Vec<String> = vec![command.to_string()];
 
     // the main command
     let command = match command {
@@ -92,9 +92,7 @@ fn run_commands(argument: Argument) -> String {
             })
         }
         CommandType::Meta => {
-            features::get_webpage_info(&argument.url, &argument.flags).unwrap_or_else(|err| {
-                format!("Failed to fetch metadata: {}", err)
-            })
+            Some(features::get_webpage_info(&argument.url, &argument.flags)).unwrap()
         }
         CommandType::ErrCommand(err) => {
             format!("Invalid command: {:?}", err)
@@ -103,7 +101,7 @@ fn run_commands(argument: Argument) -> String {
 }
 
 // helper function for extracting all the flags into a vector
-fn get_flags(flags: Argument) -> Vec<String> {
+fn get_flags(arg: Argument) -> Vec<String> {
     // takes in the argument given and returns a vector with all the flags given in the argument
     todo!()
 }
