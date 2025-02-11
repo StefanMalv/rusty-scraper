@@ -1,9 +1,10 @@
 extern crate core;
 
 mod features;
-
+use tokio;
 use std::io::{ ErrorKind };
 use clap::{ Command, Arg };
+
 
 // Struct for creating an argument
 struct Argument {
@@ -15,19 +16,20 @@ struct Argument {
 // Enum for the type of command being given
 // Possible to add more types for when I add new functionality
 enum CommandType {
-    Html,
-    Meta,
+    HtmlPage,
+    FileStructure,
     ErrCommand(ErrorKind),
 }
 
 // Main function for creating and handling arguments given
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // This creates the different arguments that can be given and its subcommands
     let arguments = Command::new("rusty-scraper")
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommand(
-            Command::new("html")
+            Command::new("--html")
                 .about("Get the HTML content from the first page in the target URL")
                 .arg(
                     Arg::new("url")
@@ -35,15 +37,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .help("The URL to analyze"),
                 ))
         .subcommand(
-            Command::new("meta")
-                .about("Get metadata about the page")
+            Command::new("--tree")
+                .about("Get file structure of website")
                 .arg(
                     Arg::new("url")
                         .required(true)
                         .help("The URL to analyze"),
                 ))
         .get_matches();
-
     // this part of the main function organizes the argument given into its individual
     // parts: main command, subcommands, url, flags
     // Note: considering on breaking this part into functions
@@ -64,8 +65,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // the main command
     let command = match command {
-        "html" => CommandType::Html,
-        "meta" => CommandType::Meta,
+        "--html" => CommandType::HtmlPage,
+        "--tree" => CommandType::FileStructure,
         _ => CommandType::ErrCommand(ErrorKind::InvalidData),
     };
 
@@ -84,15 +85,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 
 // Processes the argument given and runs the respective functions from features.rs
-fn run_commands(argument: Argument) -> String {
+async fn run_commands(argument: Argument) -> String {
     match argument.command {
-        CommandType::Html => {
+        CommandType::HtmlPage => {
             features::get_html(&argument.url).unwrap_or_else(|err| {
                 format!("Failed to fetch HTML: {}", err)
             })
         }
-        CommandType::Meta => {
-            Some(features::get_webpage_info(&argument.url, &argument.flags)).unwrap()
+        CommandType::FileStructure => {
+            Some(features::get_file_structure(&argument.url)).unwrap()
         }
         CommandType::ErrCommand(err) => {
             format!("Invalid command: {:?}", err)
@@ -100,8 +101,9 @@ fn run_commands(argument: Argument) -> String {
     }
 }
 
+// Dont know if I need this figured out a better solution but I will keep it here anyway just in case:)
 // helper function for extracting all the flags into a vector
-fn get_flags(arg: Argument) -> Vec<String> {
-    // takes in the argument given and returns a vector with all the flags given in the argument
-    todo!()
-}
+// fn get_flags(arg: Argument) -> Vec<String> {
+//     // takes in the argument given and returns a vector with all the flags given in the argument
+//     todo!()
+// }
