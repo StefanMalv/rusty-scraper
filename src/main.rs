@@ -23,7 +23,7 @@ enum CommandType {
 
 // Main function for creating and handling arguments given
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() {
     // This creates the different arguments that can be given and its subcommands
     let arguments = Command::new("rusty-scraper")
         .subcommand_required(true)
@@ -57,30 +57,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Given url
     let url = sub_arguments
         .get_one::<String>("url")
-        .ok_or(ErrorKind::InvalidInput).unwrap()
+        .ok_or(ErrorKind::InvalidInput)
+        .unwrap()
         .to_string();
 
     // all the flags
     let flags: Vec<String> = vec![command.to_string()];
 
     // the main command
-    let command = match command {
-        "--html" => CommandType::HtmlPage,
-        "--tree" => CommandType::FileStructure,
-        _ => CommandType::ErrCommand(ErrorKind::InvalidData),
-    };
+    let main_command = match_command(command).await;
 
     // the whole argument
     let argument = Argument {
-        command,
+        command: main_command,
         url,
         flags,
     };
 
-    let result = run_commands(argument);
-
-    println!("{}", result);
-    Ok(())
+    let result = run_commands(argument).await;
+    println!("{:?}", result);
 }
 
 
@@ -88,12 +83,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn run_commands(argument: Argument) -> String {
     match argument.command {
         CommandType::HtmlPage => {
-            features::get_html(&argument.url).unwrap_or_else(|err| {
+            features::get_html(&argument.url).await.unwrap_or_else(|err| {
                 format!("Failed to fetch HTML: {}", err)
             })
         }
         CommandType::FileStructure => {
-            Some(features::get_file_structure(&argument.url)).unwrap()
+            Some(features::get_file_structure(argument.url)).unwrap().await
         }
         CommandType::ErrCommand(err) => {
             format!("Invalid command: {:?}", err)
@@ -101,9 +96,12 @@ async fn run_commands(argument: Argument) -> String {
     }
 }
 
-// Dont know if I need this figured out a better solution but I will keep it here anyway just in case:)
-// helper function for extracting all the flags into a vector
-// fn get_flags(arg: Argument) -> Vec<String> {
-//     // takes in the argument given and returns a vector with all the flags given in the argument
-//     todo!()
-// }
+//see line 67
+async fn match_command(command: &str) -> CommandType {
+    let matched = match command {
+        "--html" => CommandType::HtmlPage,
+        "--tree" => CommandType::FileStructure,
+        _ => CommandType::ErrCommand(ErrorKind::InvalidData),
+    };
+    matched
+}
