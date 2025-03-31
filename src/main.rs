@@ -1,10 +1,8 @@
-extern crate core;
-
 mod features;
 use tokio;
 use std::io::{ ErrorKind };
 use clap::{ Command, Arg };
-
+use reqwest::Client;
 
 // Struct for creating an argument
 struct Argument {
@@ -24,6 +22,12 @@ enum CommandType {
 // Main function for creating and handling arguments given
 #[tokio::main]
 async fn main() {
+    // Create client
+    let client = Client::builder()
+        .pool_max_idle_per_host(10)
+        .build()
+        .unwrap();
+
     // This creates the different arguments that can be given and its subcommands
     let arguments = Command::new("rusty-scraper")
         .subcommand_required(true)
@@ -47,7 +51,7 @@ async fn main() {
         .get_matches();
     // this part of the main function organizes the argument given into its individual
     // parts: main command, subcommands, url, flags
-    // Note: considering on breaking this part into functions
+    // Note: considering on breaking this part into a command parsing function
 
     // commands and subcommands
     let (command, sub_arguments) = arguments
@@ -74,21 +78,27 @@ async fn main() {
         flags,
     };
 
-    let result = run_commands(argument).await;
+    let result = run_commands(argument, &client).await;
     println!("{:?}", result);
 }
 
 
 // Processes the argument given and runs the respective functions from features.rs
-async fn run_commands(argument: Argument) -> String {
+async fn run_commands(argument: Argument, client: &Client) -> String {
     match argument.command {
         CommandType::HtmlPage => {
-            features::get_html(&argument.url).await.unwrap_or_else(|err| {
+            features::get_html(&argument.url, client).await.unwrap_or_else(|err| {
                 format!("Failed to fetch HTML: {}", err)
             })
         }
         CommandType::FileStructure => {
-            Some(features::get_file_structure(argument.url)).unwrap().await
+            let sites = features::crawl_webpage(&argument.url, client);
+            sites
+                .await
+                .iter()
+                .next()
+                .unwrap()
+                .to_string()
         }
         CommandType::ErrCommand(err) => {
             format!("Invalid command: {:?}", err)

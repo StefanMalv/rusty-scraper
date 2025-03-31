@@ -1,78 +1,84 @@
 use std::string::String;
 use scraper::{ Html, Selector };
-use std::collections::{ VecDeque };
-use reqwest::Url;
+use std::collections::{ VecDeque, HashSet };
+use futures::future::join_all;
+use reqwest::{Client, Error, Url};
+use tokio::{ task };
 
-// enum WebPage {
-//     Header(String),
-//     Body(String),
-//     Footer(String),
-//     Links(String),
-// }
-
-// Command for when the --html command is called
-// Gives the raw html content of the page
-
-
-pub async fn get_html(url: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let response = reqwest::get(url).await?.text().await?;
-    let html_document = Html::parse_document(&response);
-
-    Ok(html_document.html())
+// Get html page for a url
+pub async fn get_html(url: &str, client: &Client) -> Result<String, Error> {
+    // client
+    let response = client.get(url)
+        .send()
+        .await?;
+    // html content
+    let html = response.text().await?;
+    Ok(html)
 }
 
-pub async fn get_file_structure(url: String) -> String {
-    //function for getting file structure of website
-    let crawler = crawl_webpage(&url).await;
-
-    crawler
-        .into_iter()
-        .next()
-        .unwrap_or_else(|| "No structure found".to_string())
-}
-
-pub async fn crawl_webpage(url: &String) -> Vec<String> {
-    // limit of sites crawled
+// Function for crawg webpages
+pub async fn crawl_webpage(url: &String, client: &Client) -> HashSet<String> {
+    // Limit of sites crawled
     let limit: u32 = 100;
+
     // List of visited URLs
-    let mut visited: Vec<String> = Vec::new();
+    let mut visited: HashSet<String> = HashSet::new();
+
     // Queue for URLs to visit
     let mut queue: VecDeque<String> = VecDeque::new();
     queue.push_back(url.clone());
 
-    // Process the queue until it's empty
-    while let Some(current_url) = queue.pop_front() {
-        // Skip if the URL has already been visited
-        if visited.contains(&current_url) {
-            continue;
-        }
-        if visited.len() == limit as usize {
-            break
+    // Loop for getting webpages
+    while !queue.is_empty() && visited.len() < limit as usize {
+        // List off all tasks spawned
+        let mut tasks = Vec::new();
+
+        // Get the unvisited url
+        while let Some(current_url) = queue.pop_front() {
+            if visited.contains(&current_url) {
+                continue;
+            }
+            // Marks it as visited
+            visited.insert(current_url.clone());
+
+            // Spawn async task to fetch HTML
+            let client_clone = client.clone();
+            let task = task::spawn(async move {
+                get_html(&current_url, &client_clone).await.map(|page| (current_url, page))
+            });
+
+            // Push all tasks to list of tasks
+            tasks.push(task);
         }
 
-        // Mark the URL as visited
-        visited.push(current_url.clone());
+        // Wait for all fetches to complete
+        let results = join_all(tasks).await;
 
-        // Fetch the HTML content of the current URL
-        if let Ok(page) = get_html(&current_url).await {
-            // Extract links from the page
-            let links = get_links(&current_url, &page).await;
-            for link in links {
-                // Add new links to the queue
-                if !visited.contains(&link) {
-                    queue.push_back(link.clone());
+        // goes through all the tasks in the list of tasks
+        for result in results {
+            // Not pretty, but it works, this nested result is because it comes from the async tokio task
+            // and the inner Result comes from the unpacking of the HTTP request itself
+            if let Ok(Ok((url, page))) = result {
+                // gets all links from page
+                let links = get_links(&url, &page).await;
+                // This loop adds all links returned form result to the queue to be checked
+                for link in links {
+                    // adds the link to the queue if not visited
+                    if !visited.contains(&link) {
+                        queue.push_back(link);
+                    }
                 }
             }
         }
     }
+
     // Return the list of visited URLs
     println!("{} sites visited", visited.len());
-    for urls in visited.iter() {
-        println!("{}", urls)
+    for url in &visited {
+        println!("{}", url);
     }
     visited
 }
-
 
 pub async fn get_links(url: &str, page_content: &str) -> Vec<String> {
         // get the page content
@@ -92,8 +98,5 @@ pub async fn get_links(url: &str, page_content: &str) -> Vec<String> {
                 }
             }
         }
-
        links
 }
-
-
