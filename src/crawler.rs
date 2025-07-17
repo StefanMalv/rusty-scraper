@@ -1,6 +1,6 @@
 use std::string::String;
 use scraper::{ Html, Selector };
-use std::collections::{VecDeque, HashSet, BTreeSet};
+use std::collections::{VecDeque, BTreeSet};
 use reqwest::{Client, Error, Url};
 use std::time::{ Instant, Duration };
 use futures::stream::{FuturesUnordered, StreamExt};

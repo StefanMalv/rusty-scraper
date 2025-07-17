@@ -1,17 +1,18 @@
 extern crate core;
 
 mod crawler;
+mod httpserver;
+
 use tokio;
 use std::io::{ ErrorKind };
 use clap::{ Command, Arg };
 use reqwest::Client;
-
+use clap::{ArgMatches};
 
 // Struct for creating an argument
 struct Argument {
     command: CommandType,
-    url: String,
-    flags: Vec<String>,
+    input_argument: String,
 }
 
 // Enum for the type of command being given
@@ -19,6 +20,7 @@ struct Argument {
 enum CommandType {
     HtmlPage,
     FileStructure,
+    HttpServer,
     ErrCommand(ErrorKind),
 }
 
@@ -51,25 +53,93 @@ async fn main() {
                         .required(true)
                         .help("The URL to analyze"),
                 ))
+        .subcommand(
+            Command::new("--http-server")
+                .about("Spin up your own http server on localhost")
+                .arg(
+                    Arg::new("port")
+                        .required(true)
+                        .help("The port to use"),
+                ))
         .get_matches();
     // this part of the main function organizes the argument given into its individual
     // parts: main command, subcommands, url, flags
     // Note: considering on breaking this part into a command parsing function
 
+    let subcommand = handle_subcommands(arguments);
+
+    run_commands(subcommand.await, &client).await;
+}
+
+
+// Processes the argument and runs the respective function from the crawler
+async fn run_commands(argument: Argument, client: &Client) {
+    match argument.command {
+        CommandType::HtmlPage => {
+            // Try to fetch HTML page
+            let html_page = crawler::get_html(&argument.input_argument, client)
+                .await.unwrap_or_else(
+                |err| format!("Failed to fetch HTML: {}", err
+                ));
+            println!("{}", html_page)
+        }
+
+        CommandType::FileStructure => {
+            // Crawl webpage and get a set of links
+            let sites = crawler::crawl_webpage(&argument.input_argument, client).await;
+
+            // Get one link to display, or default message
+            match sites.iter().next() {
+                Some(link) => println!("{}", link),
+                None => panic!("No links found during crawl."),
+            }
+        }
+
+        CommandType::HttpServer => {
+            httpserver::create_server()
+        }
+
+        CommandType::ErrCommand(err) => {
+            panic!("Invalid command: {:?}", err)
+        }
+    }
+}
+
+
+//see line 67
+async fn match_command(command: &str) -> CommandType {
+    let matched = match command {
+        "--html" => CommandType::HtmlPage,
+        "--tree" => CommandType::FileStructure,
+        "--http-server" => CommandType::HttpServer,
+        _ => CommandType::ErrCommand(ErrorKind::InvalidData),
+    };
+    matched
+}
+
+async fn handle_subcommands(argument: ArgMatches) -> Argument {
     // commands and subcommands
-    let (command, sub_arguments) = arguments
+    let (command, sub_arguments) = argument
         .subcommand()
         .ok_or(ErrorKind::InvalidInput).unwrap();
 
-    // Given url
-    let url = sub_arguments
-        .get_one::<String>("url")
-        .ok_or(ErrorKind::InvalidInput)
-        .unwrap()
-        .to_string();
+    let sub_args = match command {
+        "--html" | "--tree" => {
+            sub_arguments
+                .get_one::<String>("url")
+                .expect("Value None")
+        }
 
-    // all the flags
-    let flags: Vec<String> = vec![command.to_string()];
+        "--http-server" => {
+            sub_arguments
+                .get_one::<String>("port")
+                .expect("Value None")
+        }
+
+        _ => {
+            panic!("Unknown subcommand: {}", command);
+        }
+    };
 
     // the main command
     let main_command = match_command(command).await;
@@ -77,46 +147,9 @@ async fn main() {
     // the whole argument
     let argument = Argument {
         command: main_command,
-        url,
-        flags,
+        input_argument: sub_args.to_string(),
     };
 
-    let result = run_commands(argument, &client).await;
-    println!("{:?}", result);
+    argument
 }
-
-
-// Processes the argument given and runs the respective functions from crawler
-async fn run_commands(argument: Argument, client: &Client) -> String {
-    match argument.command {
-        CommandType::HtmlPage => {
-            crawler::get_html(&argument.url, client).await.unwrap_or_else(|err| {
-                format!("Failed to fetch HTML: {}", err)
-            })
-        }
-        CommandType::FileStructure => {
-            let sites = crawler::crawl_webpage(&argument.url, client);
-            sites
-                .await
-                .iter()
-                .next()
-                .unwrap()
-                .to_string()
-        }
-        CommandType::ErrCommand(err) => {
-            format!("Invalid command: {:?}", err)
-        }
-    }
-}
-
-//see line 67
-async fn match_command(command: &str) -> CommandType {
-    let matched = match command {
-        "--html" => CommandType::HtmlPage,
-        "--tree" => CommandType::FileStructure,
-        _ => CommandType::ErrCommand(ErrorKind::InvalidData),
-    };
-    matched
-}
-
 
