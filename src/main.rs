@@ -1,8 +1,11 @@
-mod features;
+extern crate core;
+
+mod crawler;
 use tokio;
 use std::io::{ ErrorKind };
 use clap::{ Command, Arg };
 use reqwest::Client;
+
 
 // Struct for creating an argument
 struct Argument {
@@ -42,7 +45,7 @@ async fn main() {
                 ))
         .subcommand(
             Command::new("--tree")
-                .about("Get file structure of website")
+                .about("Crawl all")
                 .arg(
                     Arg::new("url")
                         .required(true)
@@ -83,16 +86,16 @@ async fn main() {
 }
 
 
-// Processes the argument given and runs the respective functions from features.rs
+// Processes the argument given and runs the respective functions from crawler
 async fn run_commands(argument: Argument, client: &Client) -> String {
     match argument.command {
         CommandType::HtmlPage => {
-            features::get_html(&argument.url, client).await.unwrap_or_else(|err| {
+            crawler::get_html(&argument.url, client).await.unwrap_or_else(|err| {
                 format!("Failed to fetch HTML: {}", err)
             })
         }
         CommandType::FileStructure => {
-            let sites = features::crawl_webpage(&argument.url, client);
+            let sites = crawler::crawl_webpage(&argument.url, client);
             sites
                 .await
                 .iter()
@@ -115,3 +118,5 @@ async fn match_command(command: &str) -> CommandType {
     };
     matched
 }
+
+
